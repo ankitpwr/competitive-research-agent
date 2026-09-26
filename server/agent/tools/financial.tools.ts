@@ -6,8 +6,6 @@ export const yahooFinance = new YahooFinance({
 
 export async function fetchStockInfo(symbol: string) {
   try {
-    console.log("input symbol to fetch stock tool ", symbol);
-
     const data = await yahooFinance.quoteSummary(`${symbol}.NS`, {
       modules: [
         "assetProfile",
@@ -51,15 +49,11 @@ export async function fetchStockInfo(symbol: string) {
       returnOnEquity: data.financialData?.returnOnEquity,
     };
 
-    // console.log("extract-stock-info ", filteredData);
-
     return {
       success: true,
       stockInfo: filteredData,
     };
   } catch (error) {
-    console.log("error in extract-stock-info");
-    console.log(error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Stock info tool failed",
@@ -69,8 +63,6 @@ export async function fetchStockInfo(symbol: string) {
 
 export async function fetchBalanceSheet(symbol: string, companyName: string) {
   try {
-    console.log("in fetch balance sheet tool", symbol, companyName);
-
     const start = "2026-01-01";
     const end = new Date().toISOString().split("T")[0];
     const result = await yahooFinance.fundamentalsTimeSeries(`${symbol}.NS`, {
@@ -86,8 +78,6 @@ export async function fetchBalanceSheet(symbol: string, companyName: string) {
     }));
     return { success: true, balanceSheetData: dataWithSymbol };
   } catch (error) {
-    console.error("Error fetching balance sheet:", error);
-    console.log(error);
     return {
       success: false,
       error:

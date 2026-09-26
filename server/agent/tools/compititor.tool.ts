@@ -3,7 +3,6 @@ import { yahooFinance } from "./financial.tools";
 
 export async function fetchCompititors(symbol: string) {
   try {
-    console.log("in fetchCompititors tool", symbol);
     const { data } = await nseClient.get(
       `/NextApi/apiClient/GetQuoteApi?functionName=getPeerComparisonData&symbol=${symbol}&type=S&quarter=2025-12&param=industry&index=`,
     );
@@ -41,15 +40,11 @@ export async function fetchCompititors(symbol: string) {
       };
     }
 
-    console.log("response in fetch Compititors ", usableCompetitors);
-
     return {
       success: true,
       competitors: usableCompetitors,
     };
   } catch (error) {
-    console.log("error in extract-peers-info");
-    console.log(error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Peers tool failed",

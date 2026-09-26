@@ -11,6 +11,7 @@ import {
   Search,
   Sparkles,
   TriangleAlert,
+  Terminal,
 } from "lucide-react";
 import "./App.css";
 
@@ -18,6 +19,8 @@ type Activity = {
   id: number;
   mode: string;
   label: string;
+  source?: "node" | "subagent" | "tool";
+  phase?: "start" | "complete";
   detail?: string;
 };
 
@@ -56,32 +59,37 @@ function unpackEvent(value: unknown): { mode: string; payload: unknown } {
 }
 
 function describeEvent(value: unknown, mode: string): Activity | null {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const activity = value as Record<string, unknown>;
+    if (
+      activity.type === "activity" &&
+      typeof activity.label === "string" &&
+      (activity.source === "node" ||
+        activity.source === "subagent" ||
+        activity.source === "tool")
+    ) {
+      return {
+        id: Date.now(),
+        mode,
+        label: activity.label,
+        source: activity.source,
+        phase: activity.phase === "complete" ? "complete" : "start",
+      };
+    }
+  }
+
   const status = findString(value, "status");
   const finalSummary = findString(value, "finalSummary");
   const detail =
     status ?? (finalSummary ? "Synthesis is ready to review." : undefined);
 
-  if (status) return { id: Date.now(), mode, label: status };
+  if (status && !status.toLowerCase().includes("success")) {
+    return { id: Date.now(), mode, label: status };
+  }
   if (finalSummary)
     return { id: Date.now(), mode, label: "Final synthesis ready", detail };
 
-  if (mode !== "updates") return null;
-
-  const keys =
-    value && typeof value === "object" && !Array.isArray(value)
-      ? Object.keys(value as Record<string, unknown>)
-      : [];
-  const nodeName = keys
-    .find((key) =>
-      ["fetch_competitors", "orchestrator", "finalResponse"].includes(key),
-    )
-    ?.replaceAll("_", " ");
-  if (!nodeName) return null;
-  return {
-    id: Date.now(),
-    mode,
-    label: `${nodeName} updated`,
-  };
+  return null;
 }
 
 async function readStream(
@@ -221,7 +229,7 @@ function App() {
             <input
               value={company}
               onChange={(event) => setCompany(event.target.value)}
-              placeholder="e.g. Nvidia, Reliance Industries"
+              placeholder="e.g. Infosys, Reliance Industries"
               aria-label="Company name"
               autoFocus
             />
@@ -230,7 +238,11 @@ function App() {
               disabled={!company.trim() || isRunning}
               aria-label="Start research"
             >
-              <ArrowUp size={19} />
+              {isRunning ? (
+                <LoaderCircle size={19} className="spin" />
+              ) : (
+                <ArrowUp size={19} />
+              )}
             </button>
           </div>
           <div className="form-footer">
@@ -257,51 +269,73 @@ function App() {
           )}
         </div>
 
-        <article className={`response-panel ${summary ? "has-summary" : ""}`}>
-          <div className="summary-topline">
-            <span className="section-kicker">02 / RESPONSE</span>
-            {summary && (
-              <span className="ready-badge">
-                <Check size={12} /> READY
-              </span>
-            )}
-          </div>
-          {summary ? (
-            <div className="markdown-body">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {summary}
-              </ReactMarkdown>
-            </div>
-          ) : currentActivity ? (
-            <div className="response-thinking" key={currentActivity.id}>
-              <div className={`activity-icon ${isRunning ? "is-active" : ""}`}>
-                {isRunning ? (
-                  <LoaderCircle size={15} className="spin" />
-                ) : (
-                  <Check size={15} />
-                )}
-              </div>
-              <div className="activity-content">
-                <span className="activity-label">{currentActivity.label}</span>
-                <span className="activity-meta">
-                  {currentActivity.mode} /{" "}
-                  {isRunning ? "IN PROGRESS" : "COMPLETE"}
+        <article className="response-panel">
+          {/* Thinking / Streaming Status */}
+          {isRunning && currentActivity && !summary && (
+            <div
+              className="response-thinking-container"
+              key={currentActivity.id}
+            >
+              <div className="thinking-header">
+                <Terminal size={14} className="thinking-icon" />
+                <span>Agent Processing...</span>
+                <span className="streaming-live-label">
+                  <span /> LIVE
                 </span>
+              </div>
+              <div className="streaming-status">
+                <div className="streaming-status-topline">
+                  <div className={`activity-icon is-active`}>
+                    <LoaderCircle size={15} className="spin" />
+                  </div>
+                  <div className="activity-content">
+                    <span className="activity-label">
+                      {currentActivity.label}
+                    </span>
+                    <span className="activity-meta">
+                      {currentActivity.source ?? currentActivity.mode} / IN
+                      PROGRESS
+                    </span>
+                  </div>
+                </div>
+                <div className="streaming-track" aria-hidden="true">
+                  <span className="streaming-track-fill" />
+                </div>
+                <p className="streaming-caption">
+                  Gathering real-time market data and synthesizing context.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Final Summary / Markdown */}
+          {summary ? (
+            <div className="summary-container">
+              <div className="summary-topline">
+                <span className="section-kicker">02 / SYNTHESIS</span>
+                <span className="ready-badge">
+                  <Check size={14} /> COMPLETE
+                </span>
+              </div>
+              <div className="markdown-body">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {summary}
+                </ReactMarkdown>
               </div>
             </div>
           ) : error ? (
             <div className="error-state">
               <TriangleAlert size={16} /> {error}
             </div>
-          ) : (
+          ) : !isRunning ? (
             <div className="summary-placeholder">
               <div className="empty-icon">
-                <Radio size={20} />
+                <Radio size={24} />
               </div>
               <p>Your research response will appear here.</p>
               <span>Enter a company above to begin.</span>
             </div>
-          )}
+          ) : null}
         </article>
       </section>
       <footer>

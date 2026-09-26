@@ -1,4 +1,10 @@
-import { END, START, StateGraph, StateSchema } from "@langchain/langgraph";
+import {
+  END,
+  START,
+  StateGraph,
+  StateSchema,
+  type StreamMode,
+} from "@langchain/langgraph";
 import { z } from "zod";
 import { fetchCompititors } from "./nodes/fetchCompititors";
 import { orchestrator } from "./nodes/orchestrator";
@@ -29,6 +35,23 @@ const graph = new StateGraph(State)
   .addEdge("finalResponse", END);
 
 export const competitorGraph = graph.compile();
+
+const streamConfig: { streamMode: StreamMode[]; subgraphs: boolean } = {
+  streamMode: ["updates", "custom"],
+  subgraphs: true,
+};
+
+export async function* streamAgent(companyName: string) {
+  console.log("Input company ", companyName);
+  const stream = await competitorGraph.stream(
+    { company: companyName },
+    streamConfig,
+  );
+
+  for await (const event of stream) {
+    yield event;
+  }
+}
 
 export async function startAgent(companyName: string) {
   const res = await competitorGraph.invoke({ company: companyName });

@@ -4,8 +4,6 @@ import { nseClient } from "../../lib/apiClient";
 
 export async function getSymbol(company: string) {
   try {
-    console.log("input to getSymbol tool ", company);
-
     const url =
       `NextApi/globalSearch/equity?symbol=` + encodeURIComponent(company);
     const { data } = await nseClient.get(url);
@@ -19,7 +17,6 @@ export async function getSymbol(company: string) {
     const eqOnly = results.filter((r: any) => r.series === "EQ");
     const filtered = eqOnly.length > 0 ? eqOnly : results;
 
-    // console.log("filtered response from getSymbol tool", filtered);
     return { success: true, possibleSymbols: filtered };
   } catch (error) {
     return {

@@ -6,17 +6,28 @@ import { getSymbol } from "./symbol.tools";
 import { fetchCompititors } from "./compititor.tool";
 import { financialSubagent } from "../subagents/financialSubagent";
 import { CompanySnapshot } from "../subagents/companyResearchSubagent";
+import { reportActivity } from "../subagents/activity";
 
 export const stockInfoTool = tool(
   async ({ symbol }: { symbol: string }, config: LangGraphRunnableConfig) => {
     try {
-      config.writer?.({
-        status: `Analyzing key ratios and intraday metrics for ${symbol}...`,
-      });
+      reportActivity(
+        config,
+        "tool",
+        "get_stock_financial_metrics",
+        "start",
+        `Reading market metrics for ${symbol}`,
+      );
       const data = await fetchStockInfo(symbol);
+      reportActivity(
+        config,
+        "tool",
+        "get_stock_financial_metrics",
+        "complete",
+        `Market metrics received for ${symbol}`,
+      );
       return JSON.stringify(data?.stockInfo);
     } catch (error) {
-      console.log("error in stock info tool ", error);
       return `Tool failed: ${error instanceof Error ? error.message : "unknown error"}`;
     }
   },
@@ -49,13 +60,30 @@ export const balanceSheetTool = tool(
     config: LangGraphRunnableConfig,
   ) => {
     try {
-      config.writer?.({
-        status: `Retrieving balance sheet statements for ${symbol}...`,
-      });
+      reportActivity(
+        config,
+        "tool",
+        "get_balance_sheet",
+        "start",
+        `Reading balance sheet for ${symbol}`,
+      );
       const data = await fetchBalanceSheet(symbol, companyName);
+      reportActivity(
+        config,
+        "tool",
+        "get_balance_sheet",
+        "complete",
+        `Balance sheet received for ${symbol}`,
+      );
       return JSON.stringify(data);
     } catch (error) {
-      console.log("error in balance sheet tool ", error);
+      reportActivity(
+        config,
+        "tool",
+        "get_balance_sheet",
+        "complete",
+        `Balance sheet retrieval failed for ${symbol}`,
+      );
       return `Tool failed: ${error instanceof Error ? error.message : "unknown error"}`;
     }
   },
@@ -83,13 +111,23 @@ export const balanceSheetTool = tool(
 export const symbolTool = tool(
   async ({ company }: { company: string }, config: LangGraphRunnableConfig) => {
     try {
-      config.writer?.({
-        status: `Looking for ticker symbol for ${company}...`,
-      });
+      reportActivity(
+        config,
+        "tool",
+        "symbol_extractor_tool",
+        "start",
+        `Resolving the ticker for ${company}`,
+      );
       const data = await getSymbol(company);
+      reportActivity(
+        config,
+        "tool",
+        "symbol_extractor_tool",
+        "complete",
+        `Ticker lookup complete for ${company}`,
+      );
       return JSON.stringify(data);
     } catch (error) {
-      console.log("error in symbol tool ", error);
       return `Tool failed: ${error instanceof Error ? error.message : "unknown error"}`;
     }
   },
@@ -111,13 +149,23 @@ export const symbolTool = tool(
 export const fetchCompititorsTool = tool(
   async ({ symbol }: { symbol: string }, config: LangGraphRunnableConfig) => {
     try {
-      config.writer?.({
-        status: `Identifying industry peers and competitors for ${symbol}...`,
-      });
+      reportActivity(
+        config,
+        "tool",
+        "fetch_stocks_peers_information",
+        "start",
+        `Looking up peers for ${symbol}`,
+      );
       const data = await fetchCompititors(symbol);
+      reportActivity(
+        config,
+        "tool",
+        "fetch_stocks_peers_information",
+        "complete",
+        `Peer lookup complete for ${symbol}`,
+      );
       return JSON.stringify(data);
     } catch (error) {
-      console.log("error in peers info tool ", error);
       return `Tool failed: ${error instanceof Error ? error.message : "unknown error"}`;
     }
   },
@@ -146,16 +194,26 @@ export const financialSubagentTool = tool(
     config: LangGraphRunnableConfig,
   ) => {
     try {
-      config.writer?.({
-        status: `Performing fundamental analysis for ${companyName}...`,
-      });
+      reportActivity(
+        config,
+        "subagent",
+        "financial_research_subagent",
+        "start",
+        `Financial research started for ${companyName}`,
+      );
       if (!symbol.trim()) {
         return "Tool failed: a verified stock symbol is required for financial research";
       }
-      const data = await financialSubagent(companyName, symbol, task);
+      const data = await financialSubagent(companyName, symbol, task, config);
+      reportActivity(
+        config,
+        "subagent",
+        "financial_research_subagent",
+        "complete",
+        `Financial research complete for ${companyName}`,
+      );
       return JSON.stringify(data);
     } catch (error) {
-      console.log("error in fundamental subagent tool ", error);
       return `Tool failed: ${error instanceof Error ? error.message : "unknown error"}`;
     }
   },
@@ -192,13 +250,30 @@ export const companySnapshotSubagentTool = tool(
     config: LangGraphRunnableConfig,
   ) => {
     try {
-      config.writer?.({
-        status: `Building a company snapshot for ${companyName}...`,
-      });
-      const data = await CompanySnapshot(companyName);
+      reportActivity(
+        config,
+        "tool",
+        "company_snapshot_subagent",
+        "start",
+        `Delegating company snapshot for ${companyName}`,
+      );
+      const data = await CompanySnapshot(companyName, config);
+      reportActivity(
+        config,
+        "tool",
+        "company_snapshot_subagent",
+        "complete",
+        `Company snapshot returned for ${companyName}`,
+      );
       return JSON.stringify(data);
     } catch (error) {
-      console.log("error in company snapshot subagent tool ", error);
+      reportActivity(
+        config,
+        "tool",
+        "company_snapshot_subagent",
+        "complete",
+        `Company snapshot failed for ${companyName}`,
+      );
       return `Tool failed: ${error instanceof Error ? error.message : "unknown error"}`;
     }
   },

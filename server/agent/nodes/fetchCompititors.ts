@@ -6,6 +6,8 @@ import { competitorDiscoveryPrompt } from "../prompts";
 import { z } from "zod";
 import { tool } from "@langchain/core/tools";
 import { fetchCompititorsTool, symbolTool } from "../tools/tool.registry";
+import type { LangGraphRunnableConfig } from "@langchain/langgraph";
+import { reportActivity } from "../subagents/activity";
 
 const tavilySearchTool = new TavilySearch({
   maxResults: 5,
@@ -62,30 +64,58 @@ const agent = createAgent({
   responseFormat: structuredResponse,
 });
 
-export async function fetchCompititors(state: StateType) {
+export async function fetchCompititors(
+  state: StateType,
+  config: LangGraphRunnableConfig,
+) {
+  reportActivity(
+    config,
+    "node",
+    "fetch_competitors",
+    "start",
+    `Finding competitors for ${state.company}`,
+  );
   try {
     const messages = [
       new SystemMessage(competitorDiscoveryPrompt),
       new HumanMessage(`company: ${state.company}`),
     ];
 
-    const response = await agent.invoke({ messages });
+    const response = await agent.invoke({ messages }, config);
 
     const competitors = response.structuredResponse.competitors.map(
       ({ name, symbol }) => (symbol ? `${name} (${symbol})` : name),
     );
 
-    console.log("in fetch competitors", response.structuredResponse);
-
     if (response.structuredResponse.symbolofTargetCompany) {
+      reportActivity(
+        config,
+        "node",
+        "fetch_competitors",
+        "complete",
+        "Competitor shortlist ready",
+      );
       return {
         competitors,
         targetCompanySymbol: response.structuredResponse.symbolofTargetCompany,
       };
     }
+    reportActivity(
+      config,
+      "node",
+      "fetch_competitors",
+      "complete",
+      "Competitor shortlist ready",
+    );
     return { competitors };
   } catch (error) {
-    console.log("error in fetch Compititor ", error);
+    reportActivity(
+      config,
+      "node",
+      "fetch_competitors",
+      "complete",
+      "Competitor discovery failed",
+    );
     return {
       error: error instanceof Error ? error.message : "fetch Compititor failed",
     };
